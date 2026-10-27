@@ -1324,20 +1324,3 @@ function webauthn_used_nonces(int $now): ?array {
 		return $exp >= $now;
 	});
 }
-
-/*
- * Record a nonce as used. False if it was already used, or if that
- * cannot be known (the list cannot be read or written, or holds
- * WEBAUTHN_MAX_LIVE_NONCES unexpired entries).
- */
-function webauthn_mark_nonce_used(string $nonce, int $expires, ?int $now = null): bool {
-	$now = $now ?? time();
-	return webauthn_with_lock(WEBAUTHN_USED_FILE, function () use ($nonce, $expires, $now) {
-		$used = webauthn_used_nonces($now);
-		if ($used === null || isset($used[$nonce]) || count($used) >= WEBAUTHN_MAX_LIVE_NONCES) {
-			return false;
-		}
-		$used[$nonce] = $expires;
-		return webauthn_write_json(WEBAUTHN_USED_FILE, $used);
-	});
-}
