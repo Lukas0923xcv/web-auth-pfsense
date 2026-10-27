@@ -14,10 +14,10 @@ m() { # file, perl substitution, label
 	if php tests/run.php >/dev/null 2>&1; then echo "SURVIVED: $3"; else echo "killed:   $3"; fi; fi
 	mv "$1.bak" "$1"
 }
-m $D/webauthn_lib.inc 's/if \(!\(\$flags & WEBAUTHN_FLAG_UP\)\)/if (false)/' 'UP flag check'
+m $D/webauthn_lib.inc 's/if \(!\(\$ad\[.flags.\] & WEBAUTHN_FLAG_UP\)\)/if (false)/' 'UP flag check'
 m $D/webauthn_lib.inc 's/\$ad\[.sign_count.\] <= \$stored/\$ad["sign_count"] < \$stored/' 'lib counter <= to <'
 m $D/webauthn.inc 's/\(\$count != 0 \|\| \$stored != 0\) && \$count <= \$stored/false/' 'advance counter'
-m $D/webauthn_lib.inc 's/(function webauthn_verify_assertion.*?)if \(!hash_equals\(hash\(.sha256., \$rp_id, true\), \$ad\[.rp_id_hash.\]\)\)/$1if (false)/s' 'assertion rp hash'
+m $D/webauthn_lib.inc 's/(function webauthn_check_auth_data.*?)if \(!hash_equals\(hash\(.sha256., \$rp_id, true\), \$ad\[.rp_id_hash.\]\)\)/$1if (false)/s' 'auth data rp hash'
 m $D/webauthn_lib.inc 's/\$origin === .. \|\| !in_array\(\$origin, \$allowed, true\)/false/' 'origin check'
 m $D/webauthn_lib.inc 's/\|\| !hash_equals\(webauthn_b64url_encode\(\$challenge\), \$cd\[.challenge.\]\)//' 'challenge compare'
 m $D/webauthn_lib.inc 's/return openssl_verify\(\$data, \$sig, \$key, OPENSSL_ALGO_SHA256\) === 1;/return true;/' 'openssl verify'
@@ -48,5 +48,5 @@ m $D/cbor.inc 's/return WEBAUTHN_CBOR_TEXT_KEY_PREFIX . \$k;/return \$k;/' 'cbor
 m $D/webauthn_lib.inc 's/if \(\$offset != strlen\(\$raw\)\) \{/if (false) {/' 'authdata trailing'
 m $D/webauthn_lib.inc 's/if \(!empty\(\$cd\[.crossOrigin.\]\)\) \{/if (false) {/' 'crossOrigin'
 m $D/webauthn_lib.inc 's/if \(\(\$cd\[.type.\] \?\? null\) !== \$type\) \{/if (false) {/' 'ceremony type'
-m $D/webauthn_lib.inc 's/if \(\$require_uv && !\(\$flags & WEBAUTHN_FLAG_UV\)\) \{/if (false) {/' 'uv required'
+m $D/webauthn_lib.inc 's/if \(\$require_uv && !\(\$ad\[.flags.\] & WEBAUTHN_FLAG_UV\)\) \{/if (false) {/' 'uv required'
 m $D/hook.inc "s/require_once\('\/usr\/local\/pkg\/webauthn\/gate.inc'\);\\\\n\" \.\n\t\t\t    \"webauthn_gate/\@include('\/usr\/local\/pkg\/webauthn\/gate.inc');\\\\n\" .\n\t\t\t    \"webauthn_gate/" 'hook fail-closed'

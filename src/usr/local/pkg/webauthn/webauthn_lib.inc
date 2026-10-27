@@ -255,13 +255,19 @@ function webauthn_check_client_data(string $client_data_json, string $type, stri
 	return $cd;
 }
 
-function webauthn_check_flags(int $flags, bool $require_uv): void {
-	if (!($flags & WEBAUTHN_FLAG_UP)) {
+/* Parse authenticator data and check its RP ID hash and the UP (and, if required, UV) flags. */
+function webauthn_check_auth_data(string $raw, string $rp_id, bool $require_uv): array {
+	$ad = webauthn_parse_auth_data($raw);
+	if (!hash_equals(hash('sha256', $rp_id, true), $ad['rp_id_hash'])) {
+		throw new WebAuthnException('RP ID hash mismatch');
+	}
+	if (!($ad['flags'] & WEBAUTHN_FLAG_UP)) {
 		throw new WebAuthnException('User presence flag not set');
 	}
-	if ($require_uv && !($flags & WEBAUTHN_FLAG_UV)) {
+	if ($require_uv && !($ad['flags'] & WEBAUTHN_FLAG_UV)) {
 		throw new WebAuthnException('User verification required but not performed');
 	}
+	return $ad;
 }
 
 /*
@@ -281,11 +287,7 @@ function webauthn_verify_registration(string $client_data_json, string $attestat
 	if (!is_array($att) || !isset($att['authData']) || !($att['authData'] instanceof WebAuthnCborBytes)) {
 		throw new WebAuthnException('attestationObject has no authData');
 	}
-	$ad = webauthn_parse_auth_data($att['authData']->bytes);
-	if (!hash_equals(hash('sha256', $rp_id, true), $ad['rp_id_hash'])) {
-		throw new WebAuthnException('RP ID hash mismatch');
-	}
-	webauthn_check_flags($ad['flags'], $require_uv);
+	$ad = webauthn_check_auth_data($att['authData']->bytes, $rp_id, $require_uv);
 	if (!isset($ad['credential_public_key']) || !is_array($ad['credential_public_key'])) {
 		throw new WebAuthnException('No attested credential data');
 	}
@@ -309,11 +311,7 @@ function webauthn_verify_assertion(array $credential, string $client_data_json, 
     string $signature, string $challenge, string $rp_id, array $allowed_origins, bool $require_uv, ?array &$info = null): int {
 	webauthn_check_client_data($client_data_json, 'webauthn.get', $challenge, $allowed_origins);
 
-	$ad = webauthn_parse_auth_data($authenticator_data);
-	if (!hash_equals(hash('sha256', $rp_id, true), $ad['rp_id_hash'])) {
-		throw new WebAuthnException('RP ID hash mismatch');
-	}
-	webauthn_check_flags($ad['flags'], $require_uv);
+	$ad = webauthn_check_auth_data($authenticator_data, $rp_id, $require_uv);
 
 	$signed = $authenticator_data . hash('sha256', $client_data_json, true);
 	if (!webauthn_verify_signature((int)$credential['alg'], $credential['pem'], $signed, $signature)) {
