@@ -503,25 +503,6 @@ function webauthn_may_register(array $settings, array $session, array $source, b
 	return $status === 'verified' || ($status === 'disabled' && $is_admin);
 }
 
-/*
- * May this session remove passkey $id? Admins may always (the recovery
- * path from a trusted network). Other users may not remove their last
- * usable passkey without a session verified with a passkey: a password
- * alone would otherwise switch the passkey step off for the account.
- * For the page only; webauthn_delete_credential() decides again under
- * the config lock.
- */
-function webauthn_may_delete(array $settings, array $session, array $source, string $id, bool $is_admin): bool {
-	if ($is_admin) {
-		return true;
-	}
-	$rp = webauthn_rp_id($settings);
-	$left = array_filter(webauthn_get_credentials(webauthn_session_identity($session)), function ($c) use ($id, $rp) {
-		return ($c['id'] ?? null) !== $id && ($c['rp_id'] ?? null) === $rp;
-	});
-	return !empty($left) || webauthn_session_status($settings, $session, $source) === 'verified';
-}
-
 function webauthn_rp_id(?array $settings = null): string {
 	$settings = $settings ?? webauthn_settings();
 	return strtolower(trim($settings['rp_id']));

@@ -309,18 +309,15 @@ function test_store_last_usable_passkey_protected(): void {
 	t_true(webauthn_delete_credential($idb, 'bob', true, $err));
 }
 
-function test_store_may_register_and_delete(): void {
+function test_store_may_register(): void {
 	$settings = webauthn_settings();
 	$src = webauthn_request_source($_SERVER, $settings);
 	t_true(webauthn_may_register($settings, $_SESSION, $src), 'first passkey');
 	$auth = new TestAuthenticator();
 	$id = t_register($auth);
 	t_false(webauthn_may_register($settings, $_SESSION, $src), 'second passkey needs a verified session');
-	t_false(webauthn_may_delete($settings, $_SESSION, $src, $id, false), 'last passkey, not verified');
-	t_true(webauthn_may_delete($settings, $_SESSION, $src, $id, true), 'admin may');
 	$_SESSION['webauthn'] = webauthn_verified_state('admin', ['id' => $id], true, $settings);
 	t_true(webauthn_may_register($settings, $_SESSION, $src));
-	t_true(webauthn_may_delete($settings, $_SESSION, $src, $id, false));
 	$off = t_settings(['enable' => '']);
 	t_false(webauthn_may_register($off, $_SESSION, $src, false), 'disabled: users may not add more');
 	t_true(webauthn_may_register($off, $_SESSION, $src, true), 'disabled: admin may');
