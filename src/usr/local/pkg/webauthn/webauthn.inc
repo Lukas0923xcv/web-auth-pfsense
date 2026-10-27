@@ -691,11 +691,11 @@ function webauthn_valid_passkey_name(string $name): bool {
 /* ---- Credential storage ---- */
 
 /*
- * All stored credentials as a list, without revoked ones. <item> is a
- * pfSense list tag, so it always parses as a list; wrap a bare element
- * anyway in case one was written by hand.
+ * The passkey records in the config as a list, revoked ones included.
+ * <item> is a pfSense list tag, so it always parses as a list; wrap a
+ * bare element anyway in case one was written by hand.
  */
-function webauthn_all_credentials(): array {
+function webauthn_stored_records(): array {
 	$all = config_get_path(WEBAUTHN_CRED_PATH, []);
 	if (!is_array($all)) {
 		return [];
@@ -703,10 +703,15 @@ function webauthn_all_credentials(): array {
 	if (isset($all['id']) && !is_array($all['id'])) {
 		$all = [$all];
 	}
+	return array_values(array_filter($all, 'is_array'));
+}
+
+/* All stored credentials, without revoked ones. */
+function webauthn_all_credentials(): array {
 	/* A damaged list still lets every passkey count as present (no skipping); webauthn_find_credential() then refuses them all. */
 	$revoked = webauthn_revoked_ids() ?? [];
-	return array_values(array_filter($all, function ($c) use ($revoked) {
-		return is_array($c) && !isset($revoked[(string)($c['id'] ?? '')]);
+	return array_values(array_filter(webauthn_stored_records(), function ($c) use ($revoked) {
+		return !isset($revoked[(string)($c['id'] ?? '')]);
 	}));
 }
 
@@ -872,8 +877,7 @@ function webauthn_add_credential(string $username, string $name, array $reg, str
 	$id = webauthn_b64url_encode($reg['credential_id']);
 	$error = null;
 	$ok = webauthn_config_update(function () use ($username, $name, $reg, $rp_id, $uid, $id, &$error) {
-		$all = config_get_path(WEBAUTHN_CRED_PATH, []);
-		$all = is_array($all) ? array_values(array_filter(isset($all['id']) && !is_array($all['id']) ? [$all] : $all, 'is_array')) : [];
+		$all = webauthn_stored_records();
 		$revoked = webauthn_revoked_ids();
 		if ($revoked === null) {
 			$error = gettext('The list of removed passkeys is damaged; see the system log.');
@@ -969,21 +973,15 @@ function webauthn_delete_credential(string $id, ?string $username = null, bool $
 			$error = gettext('The passkey could not be revoked. Check the system log.');
 			return false;
 		}
-		$all = config_get_path(WEBAUTHN_CRED_PATH, []);
-		$all = is_array($all) ? (isset($all['id']) && !is_array($all['id']) ? [$all] : $all) : [];
-		$keep = [];
-		foreach ($all as $c) {
-			if (is_array($c) && !$match($c)) {
-				$keep[] = $c;
-			}
-		}
-		config_set_path(WEBAUTHN_CRED_PATH, $keep);
+		config_set_path(WEBAUTHN_CRED_PATH, array_values(array_filter(webauthn_stored_records(), function ($c) use ($match) {
+			return !$match($c);
+		})));
 	}, 'WebAuthn: removed passkey ' . substr($id, 0, 16), function () use ($id) {
 		if (!webauthn_config_reload()) {
 			return false;
 		}
-		foreach ((array)config_get_path(WEBAUTHN_CRED_PATH, []) as $c) {
-			if (is_array($c) && ($c['id'] ?? null) === $id) {
+		foreach (webauthn_stored_records() as $c) {
+			if (($c['id'] ?? null) === $id) {
 				return false;
 			}
 		}

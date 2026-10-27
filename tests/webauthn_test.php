@@ -56,6 +56,23 @@ function test_store_existing_records_still_accepted(): void {
 	t_eq(1, count(webauthn_get_credentials('admin')));
 }
 
+function test_store_damaged_record_list(): void {
+	/* Entries that are not records are ignored, kept out of new saves, and never break the list. */
+	$auth = new TestAuthenticator();
+	$id = t_register($auth);
+	$rec = config_get_path('installedpackages/webauthn/item/0');
+	config_set_path('installedpackages/webauthn/item', ['junk', $rec, ['no' => 'id']]);
+	$GLOBALS['__disk'] = $GLOBALS['config'];
+	t_eq(1, count(webauthn_get_credentials('admin')));
+	t_register(new TestAuthenticator());
+	t_eq(3, count(config_get_path('installedpackages/webauthn/item')), 'junk dropped on save');
+	t_true(webauthn_delete_credential($id));
+	t_eq(2, count(config_get_path('installedpackages/webauthn/item')));
+	t_eq(1, count(webauthn_get_credentials('admin')));
+	config_set_path('installedpackages/webauthn/item', 'text');
+	t_eq([], webauthn_get_credentials());
+}
+
 function test_store_wrong_signature_rejected(): void {
 	$auth = new TestAuthenticator();
 	t_register($auth);
