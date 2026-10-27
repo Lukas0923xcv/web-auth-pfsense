@@ -17,20 +17,18 @@
 require_once("guiconfig.inc");
 require_once("/usr/local/pkg/webauthn/webauthn.inc");
 
+/* page-all ("*") holders administer everyone's passkeys and the settings. */
+$is_admin = in_array('*', $allowedpages);
+$tab = ($is_admin && ($_REQUEST['tab'] ?? '') == 'settings') ? 'settings' : 'passkeys';
+$settings = webauthn_settings();
+$source = webauthn_request_source($_SERVER, $settings);
 phpsession_begin();
 /* The account passkeys belong to ('' for a local name that resolves to no account). */
 $username = webauthn_session_identity($_SESSION);
 /* For local accounts the uid is stored too, so a new account with the same name does not inherit them. */
 $local_entry = webauthn_session_is_local($_SESSION) ? webauthn_local_user($username) : null;
 $uid = is_array($local_entry) ? (string)($local_entry['uid'] ?? '') : '';
-phpsession_end();
-/* page-all ("*") holders administer everyone's passkeys and the settings. */
-$is_admin = in_array('*', $allowedpages);
-$tab = ($is_admin && ($_REQUEST['tab'] ?? '') == 'settings') ? 'settings' : 'passkeys';
-$settings = webauthn_settings();
-$source = webauthn_request_source($_SERVER, $settings);
 /* A user who already has a passkey may only add another from a session verified with one. */
-phpsession_begin();
 $may_register = $username !== '' && webauthn_may_register($settings, $_SESSION, $source, $is_admin);
 phpsession_end();
 $input_errors = [];
