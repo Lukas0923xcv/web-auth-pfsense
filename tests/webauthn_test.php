@@ -312,6 +312,22 @@ function test_store_reregistering_revoked_id_replaces_old_record(): void {
 	t_eq([], webauthn_revoked_ids());
 }
 
+function test_store_damaged_revocation_list_blocks_changes(): void {
+	$auth = new TestAuthenticator();
+	$id = t_register($auth);
+	file_put_contents(WEBAUTHN_REVOKED_FILE, 'garbage');
+	t_false(webauthn_delete_credential($id, null, true, $err), 'removal refused');
+	t_eq('The passkey could not be revoked. Check the system log.', $err);
+	[$cd, $att] = (new TestAuthenticator())->register(webauthn_new_challenge('register', 'admin'), T_RP, T_ORIGIN);
+	$reg = webauthn_use_challenge('register', 'admin', $cd, fn($c) => webauthn_verify_registration($cd, $att, $c, T_RP, [T_ORIGIN], false));
+	t_true(str_contains((string)webauthn_add_credential('admin', 'k', $reg, T_RP, '0'), 'damaged'), 'registration refused');
+	t_eq('garbage', file_get_contents(WEBAUTHN_REVOKED_FILE), 'left as it was');
+	/* Revoking writes the time; taking an ID off that is not listed changes nothing. */
+	unlink(WEBAUTHN_REVOKED_FILE);
+	t_true(webauthn_delete_credential($id));
+	t_true(is_int(webauthn_revoked_ids()[$id]));
+}
+
 function test_store_failed_save_keeps_revocation(): void {
 	$auth = new TestAuthenticator();
 	$id = t_register($auth);
