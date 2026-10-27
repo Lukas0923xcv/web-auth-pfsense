@@ -1291,17 +1291,6 @@ function webauthn_use_challenge(string $purpose, string $username, string $clien
 	}, null);
 }
 
-/* Validate a challenge and record it as used; returns the raw challenge or null (see webauthn_use_challenge()). */
-function webauthn_take_challenge(string $purpose, string $username, string $client_data_json): ?string {
-	try {
-		return webauthn_use_challenge($purpose, $username, $client_data_json, function ($challenge) {
-			return $challenge;
-		});
-	} catch (WebAuthnException $e) {
-		return null;
-	}
-}
-
 /*
  * Unexpired used nonces (nonce => expiry); null when the list cannot be
  * trusted: a damaged list may hold nonces that are still valid, so it is

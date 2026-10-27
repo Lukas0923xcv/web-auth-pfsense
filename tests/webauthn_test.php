@@ -245,6 +245,16 @@ function test_store_used_challenge_limits(): void {
 	t_true(is_array(check()));
 }
 
+function test_store_used_list_from_older_versions_still_counts(): void {
+	/* Older versions stored a bare expiry per nonce. */
+	$auth = new TestAuthenticator();
+	t_register($auth);
+	$ch = webauthn_new_challenge('login', 'admin');
+	file_put_contents(WEBAUTHN_USED_FILE, json_encode([bin2hex(substr($ch, 0, 16)) => time() + 100]));
+	$_POST = t_post($auth->assert($ch, T_RP, T_ORIGIN));
+	t_eq('challenge invalid, expired or already used', check());
+}
+
 function test_store_orphaned_passkeys_do_not_count(): void {
 	$auth = new TestAuthenticator();
 	t_register($auth, 'bob', '2000');
@@ -261,7 +271,7 @@ function test_store_passkey_limit_per_user(): void {
 	}
 	$auth = new TestAuthenticator();
 	[$cd, $att] = $auth->register(webauthn_new_challenge('register', 'admin'), T_RP, T_ORIGIN);
-	$reg = webauthn_verify_registration($cd, $att, webauthn_take_challenge('register', 'admin', $cd), T_RP, [T_ORIGIN], false);
+	$reg = webauthn_use_challenge('register', 'admin', $cd, fn($c) => webauthn_verify_registration($cd, $att, $c, T_RP, [T_ORIGIN], false));
 	t_true(str_contains((string)webauthn_add_credential('admin', 'k', $reg, T_RP, '0'), 'at most'));
 }
 
@@ -269,7 +279,7 @@ function test_store_duplicate_registration_rejected(): void {
 	$auth = new TestAuthenticator();
 	t_register($auth);
 	[$cd, $att] = $auth->register(webauthn_new_challenge('register', 'admin'), T_RP, T_ORIGIN);
-	$reg = webauthn_verify_registration($cd, $att, webauthn_take_challenge('register', 'admin', $cd), T_RP, [T_ORIGIN], false);
+	$reg = webauthn_use_challenge('register', 'admin', $cd, fn($c) => webauthn_verify_registration($cd, $att, $c, T_RP, [T_ORIGIN], false));
 	t_eq('This passkey is already registered.', webauthn_add_credential('admin', 'k', $reg, T_RP, '0'));
 }
 
