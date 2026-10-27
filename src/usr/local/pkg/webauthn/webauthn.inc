@@ -225,42 +225,6 @@ function webauthn_is_login_post(): bool {
 }
 
 /*
- * For a session signed in through an LDAP server, the account name
- * pfSense's ldap_backed() actually authenticated: the part before "@"
- * (unless the server has ldap_nostrip_at) and then before "". Null for
- * other sessions.
- */
-function webauthn_ldap_account(array $session): ?string {
-	$nostrip = webauthn_ldap_nostrip($session);
-	if ($nostrip === null) {
-		return null;
-	}
-	$u = webauthn_normalize_username($session['Username'] ?? '');
-	if (!$nostrip && str_contains($u, '@')) {
-		$u = explode('@', $u, 2)[0];
-	}
-	if (str_contains($u, '\\')) {
-		$u = explode('\\', $u, 2)[0];
-	}
-	return $u;
-}
-
-/* For an LDAP session: does its server keep "@domain" (ldap_nostrip_at)? Null for other sessions. */
-function webauthn_ldap_nostrip(array $session): ?bool {
-	$source = (string)($session['authsource'] ?? '');
-	if (!str_starts_with($source, 'LDAP/')) {
-		return null;
-	}
-	$nostrip = false;
-	foreach ((array)config_get_path('system/authserver', []) as $a) {
-		if (is_array($a) && ($a['type'] ?? '') === 'ldap' && 'LDAP/' . ($a['name'] ?? '') === $source) {
-			$nostrip = isset($a['ldap_nostrip_at']);
-		}
-	}
-	return $nostrip;
-}
-
-/*
  * May passkeys be stored under this session's name? Not if it holds
  * control or format characters (they would end up in config.xml). For
  * LDAP and RADIUS, not if it contains "\" or "/": the part after them
