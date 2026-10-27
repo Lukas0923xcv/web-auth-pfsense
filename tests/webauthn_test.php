@@ -577,3 +577,15 @@ function test_policy_failure_notice_rate_limited(): void {
 	webauthn_notice('three', 'other');
 	t_eq(['one', 'three'], $GLOBALS['__t']['notices']);
 }
+
+/* Older pfSense without config_read_file(): config.xml is parsed directly. */
+function test_store_config_reload_without_config_read_file(): void {
+	$GLOBALS['__disk'] = $GLOBALS['config'];
+	$GLOBALS['__disk']['marker'] = 'on disk';
+	$r = t_run_child('webauthn_config_reload', [], 'WEBAUTHN_TEST_OLD_PFSENSE=1');
+	t_true($r['result']);
+	t_eq('on disk', $r['config']['marker'], 'config replaced by config.xml');
+	$GLOBALS['__disk'] = [];
+	t_false(t_run_child('webauthn_config_reload', [], 'WEBAUTHN_TEST_OLD_PFSENSE=1')['result'], 'empty config.xml aborts');
+	t_true(t_run_child('webauthn_config_reload')['result']);
+}

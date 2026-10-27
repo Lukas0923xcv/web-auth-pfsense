@@ -31,6 +31,7 @@ register_shutdown_function(function () {
 		'returned' => $GLOBALS['__returned'],
 		'result' => $GLOBALS['__result'],
 		'session' => $_SESSION ?? null,
+		'config' => $GLOBALS['config'],
 		'output' => $output,
 		'destroyed' => !empty($GLOBALS['__t']['destroyed']),
 		'code' => http_response_code(),

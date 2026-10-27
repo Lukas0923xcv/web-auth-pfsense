@@ -243,12 +243,12 @@ function t_post(array $a): array {
  * ['returned' => bool (the request was let through), 'session', 'output',
  *  'destroyed', 'code', 'notices', 'warnings'].
  */
-function t_run_child(string $call = 'webauthn_gate', array $extra = []): array {
+function t_run_child(string $call = 'webauthn_gate', array $extra = [], string $env = ''): array {
 	$in = TEST_DIR . '/child-in.json';
 	file_put_contents($in, json_encode(['config' => $GLOBALS['config'], 'disk' => $GLOBALS['__disk'],
 	    'session' => $_SESSION, 'server' => $_SERVER, 'post' => $_POST, 'cookie' => $_COOKIE,
 	    't' => $extra, 'call' => $call]));
-	$cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/child.php') . ' ' . escapeshellarg($in) . ' 2>&1';
+	$cmd = $env . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/child.php') . ' ' . escapeshellarg($in) . ' 2>&1';
 	$out = shell_exec($cmd);
 	$pos = strrpos((string)$out, "\n@@RESULT@@");
 	if ($pos === false) {

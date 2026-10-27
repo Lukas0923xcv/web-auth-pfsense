@@ -58,12 +58,15 @@ function write_config($desc = '') {
 	return $GLOBALS['config'];
 }
 
-function config_read_file($parse = false, $restore = false) {
-	if (!empty($GLOBALS['__t']['read_fail'])) {
-		return false;
+/* Missing on older pfSense; WEBAUTHN_TEST_OLD_PFSENSE=1 leaves it out. */
+if (getenv('WEBAUTHN_TEST_OLD_PFSENSE') !== '1') {
+	function config_read_file($parse = false, $restore = false) {
+		if (!empty($GLOBALS['__t']['read_fail'])) {
+			return false;
+		}
+		$GLOBALS['config'] = $GLOBALS['__disk'];
+		return true;
 	}
-	$GLOBALS['config'] = $GLOBALS['__disk'];
-	return true;
 }
 
 function parse_xml_config($file, $roots) {
