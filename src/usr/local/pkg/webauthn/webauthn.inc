@@ -645,12 +645,13 @@ function webauthn_notice(string $message, ?string $rate_key = null): void {
 
 /* Record that a notice for $key is raised now; false if one was raised recently. */
 function webauthn_notice_due(string $key): bool {
-	$due = webauthn_with_lock(WEBAUTHN_NOTICE_FILE, function () use ($key) {
+	$k = hash('sha256', $key);
+	$marker = 'notice_' . substr($k, 0, 32);
+	$due = webauthn_with_lock(WEBAUTHN_NOTICE_FILE, function () use ($k, $marker) {
 		$now = time();
 		$data = array_filter(webauthn_read_json(WEBAUTHN_NOTICE_FILE) ?? [], function ($t) use ($now) {
 			return is_int($t) && $t > $now - WEBAUTHN_NOTICE_INTERVAL;
 		});
-		$k = hash('sha256', $key);
 		if (isset($data[$k])) {
 			return false;
 		}
@@ -661,9 +662,9 @@ function webauthn_notice_due(string $key): bool {
 		/* /conf cannot be written (full disk): rate limit with a marker in
 		 * WEBAUTHN_RUN_DIR instead; without one, raise no notice at all
 		 * rather than one per request. */
-		return webauthn_run_marker_due('notice_' . substr($k, 0, 32));
+		return webauthn_run_marker_due($marker);
 	}, null);
-	return $due ?? webauthn_run_marker_due('notice_' . substr(hash('sha256', $key), 0, 32));
+	return $due ?? webauthn_run_marker_due($marker);
 }
 
 /* True (and the marker set) if marker $name in WEBAUTHN_RUN_DIR is absent or older than WEBAUTHN_NOTICE_INTERVAL. */

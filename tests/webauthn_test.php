@@ -605,3 +605,16 @@ function test_store_config_reload_without_config_read_file(): void {
 	t_false(t_run_child('webauthn_config_reload', [], 'WEBAUTHN_TEST_OLD_PFSENSE=1')['result'], 'empty config.xml aborts');
 	t_true(t_run_child('webauthn_config_reload')['result']);
 }
+
+/* /conf full: the notice list cannot be written, a marker in WEBAUTHN_RUN_DIR rate limits instead. */
+function test_policy_notice_rate_limit_without_writable_conf(): void {
+	mkdir(WEBAUTHN_NOTICE_FILE);
+	try {
+		webauthn_notice('one', 'k');
+		webauthn_notice('two', 'k');
+		webauthn_notice('three', 'other');
+		t_eq(['one', 'three'], $GLOBALS['__t']['notices']);
+	} finally {
+		rmdir(WEBAUTHN_NOTICE_FILE);
+	}
+}
