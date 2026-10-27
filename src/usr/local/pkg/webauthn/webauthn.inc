@@ -785,13 +785,19 @@ function webauthn_config_hash($section = null): string {
 	return hash('sha256', serialize($norm(is_array($section) ? $section : [])));
 }
 
-/* The package's part of config.xml as it is on disk now; null if it cannot be read. */
-function webauthn_disk_section(): ?array {
+/* config.xml as it is on disk now; null if it cannot be read. */
+function webauthn_parse_config_xml(): ?array {
 	if (!function_exists('parse_xml_config') || !function_exists('g_get')) {
 		return null;
 	}
 	$parsed = parse_xml_config(g_get('conf_path') . '/config.xml', [g_get('xml_rootobj')]);
-	if (!is_array($parsed)) {
+	return is_array($parsed) ? $parsed : null;
+}
+
+/* The package's part of config.xml as it is on disk now; null if it cannot be read. */
+function webauthn_disk_section(): ?array {
+	$parsed = webauthn_parse_config_xml();
+	if ($parsed === null) {
 		return null;
 	}
 	$section = $parsed['installedpackages']['webauthn'] ?? [];
@@ -858,11 +864,8 @@ function webauthn_config_reload(): bool {
 	if (function_exists('config_read_file')) {
 		return config_read_file(false, false);
 	}
-	if (!function_exists('parse_xml_config') || !function_exists('g_get')) {
-		return false;
-	}
-	$parsed = parse_xml_config(g_get('conf_path') . '/config.xml', [g_get('xml_rootobj')]);
-	if (!is_array($parsed) || empty($parsed)) {
+	$parsed = webauthn_parse_config_xml();
+	if (empty($parsed)) {
 		return false;
 	}
 	$GLOBALS['config'] = $parsed;
