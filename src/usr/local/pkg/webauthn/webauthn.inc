@@ -928,7 +928,7 @@ function webauthn_add_credential(string $username, string $name, array $reg, str
 		/* Only now, with the record that replaces any revoked one saved (and
 		 * still under the lock): lifting the revocation earlier would revive
 		 * that old record if the save failed. */
-		if (!webauthn_set_revoked($id, false)) {
+		if (!webauthn_unrevoke($id)) {
 			$error = gettext('The passkey was saved but cannot be used yet: the list of removed passkeys could not be updated.');
 			return false;
 		}
@@ -970,7 +970,7 @@ function webauthn_delete_credential(string $id, ?string $username = null, bool $
 				return false;
 			}
 		}
-		if (!webauthn_set_revoked($id, true)) {
+		if (!webauthn_revoke($id)) {
 			$error = gettext('The passkey could not be revoked. Check the system log.');
 			return false;
 		}
@@ -1017,25 +1017,28 @@ function webauthn_revoked_ids(): ?array {
 	return webauthn_read_json(WEBAUTHN_REVOKED_FILE);
 }
 
-/*
- * Add $id to the removed-passkey list, or take it off: registering the
- * same credential ID again makes it valid again (authenticators normally
- * create new IDs). False if the list is damaged or cannot be written.
- */
-function webauthn_set_revoked(string $id, bool $revoked): bool {
-	return webauthn_with_lock(WEBAUTHN_REVOKED_FILE, function () use ($id, $revoked) {
+function webauthn_revoke(string $id): bool {
+	return webauthn_with_lock(WEBAUTHN_REVOKED_FILE, function () use ($id) {
 		$data = webauthn_revoked_ids();
 		if ($data === null) {
 			return false;
 		}
-		if (!$revoked && !isset($data[$id])) {
+		$data[$id] = time();
+		return webauthn_write_json(WEBAUTHN_REVOKED_FILE, $data);
+	});
+}
+
+/* Registering the same credential ID again makes it valid again (authenticators normally create new IDs). */
+function webauthn_unrevoke(string $id): bool {
+	return webauthn_with_lock(WEBAUTHN_REVOKED_FILE, function () use ($id) {
+		$data = webauthn_revoked_ids();
+		if ($data === null) {
+			return false;
+		}
+		if (!isset($data[$id])) {
 			return true;
 		}
-		if ($revoked) {
-			$data[$id] = time();
-		} else {
-			unset($data[$id]);
-		}
+		unset($data[$id]);
 		return webauthn_write_json(WEBAUTHN_REVOKED_FILE, $data);
 	});
 }
