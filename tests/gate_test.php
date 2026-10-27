@@ -19,9 +19,15 @@ function test_gate_disabled_lets_through(): void {
 }
 
 function test_gate_with_passkey_shows_challenge_and_blocks(): void {
-	t_register(new TestAuthenticator());
+	$a = t_register(new TestAuthenticator());
+	$b = t_register(new TestAuthenticator());
+	t_register(new TestAuthenticator(), 'bob', '2000');
 	$_SESSION['page-match'] = ['*'];
 	$r = gate();
+	preg_match('/data-options="([^"]*)"/', $r['output'], $m);
+	$opts = json_decode(html_entity_decode($m[1] ?? ''), true);
+	t_eq([$a, $b], array_column($opts['allowCredentials'] ?? [], 'id'), 'only this user\'s passkeys offered');
+	t_eq(T_RP, $opts['rpId']);
 	t_false($r['returned'], 'request must not reach the page');
 	t_true(str_contains($r['output'], 'id="webauthn-go"'), 'challenge page');
 	t_false(isset($r['session']['page-match']), 'cached privileges dropped');

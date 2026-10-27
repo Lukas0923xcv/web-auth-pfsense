@@ -97,7 +97,8 @@ function webauthn_gate(): void {
 		exit;
 	}
 
-	if (empty(webauthn_get_credentials($user))) {
+	$creds = webauthn_get_credentials($user);
+	if (empty($creds)) {
 		/* Only another spelling of this LDAP/RADIUS username (case,
 		 * "@domain", ...) has passkeys. They belong to that exact name. */
 		webauthn_log(LOG_WARNING, "user '{$user}' has no passkey, but another spelling of the username does; access refused", $source);
@@ -141,7 +142,7 @@ function webauthn_gate(): void {
 		'userVerification' => $settings['user_verification'],
 		'allowCredentials' => array_map(function ($c) {
 			return ['type' => 'public-key', 'id' => $c['id']];
-		}, webauthn_get_credentials($user)),
+		}, $creds),
 		'origins' => webauthn_allowed_origins($settings),
 	];
 	phpsession_end(true);
