@@ -431,14 +431,7 @@ function webauthn_session_status(array $settings, array $session, array $source)
 		/* From another login, too old, or weaker than the settings now
 		 * ask for: decide as for a session that never verified. */
 	}
-	$status = webauthn_gate_decision($settings, $source, webauthn_session_has_credentials($session));
-	if ($status === 'skip' && webauthn_session_is_local($session) &&
-	    $user !== webauthn_normalize_username($session['Username'] ?? '') &&
-	    !webauthn_source_is_trusted_network($source, $settings)) {
-		/* The sign-in name is not the account name it resolved to. */
-		return 'require';
-	}
-	return $status;
+	return webauthn_gate_decision($settings, $source, webauthn_session_has_credentials($session));
 }
 
 /*

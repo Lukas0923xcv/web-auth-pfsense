@@ -450,6 +450,24 @@ function test_policy_local_name_resolution(): void {
 	t_false(webauthn_session_is_local(['authsource' => 'LDAP/corp']));
 }
 
+/*
+ * A session's account is '' or exactly its trimmed sign-in name: local
+ * names are looked up exactly, remote ones are kept. The gate relies on
+ * this; no other spelling can stand for an account.
+ */
+function test_policy_identity_is_the_trimmed_sign_in_name(): void {
+	config_set_path('system/user', [['name' => 'admin', 'uid' => '0'], ['name' => ' spaced ', 'uid' => '1'],
+	    ['name' => '123', 'uid' => '2'], ['name' => 'Bob', 'uid' => '3'], ['name' => 'bob', 'uid' => '4'], ['name' => 'ünï', 'uid' => '5']]);
+	$names = ['admin', ' admin', "admin\t", 'Admin', 'ADMIN', ' spaced ', 'spaced', '123', '0123', '123.0', ' 123',
+	    'Bob', 'bob', 'BOB', 'ünï', 'ÜNÏ', "un\u{0308}i", '', ' ', 'admin@x', 'x\\admin'];
+	foreach (['Local Database', 'Local Database Fallback', 'LDAP/corp', 'RADIUS/r', null] as $src) {
+		foreach ($names as $n) {
+			$id = webauthn_session_identity(['Username' => $n, 'authsource' => $src]);
+			t_true($id === '' || $id === trim($n), var_export([$src, $n, $id], true));
+		}
+	}
+}
+
 function test_policy_remote_spellings_cannot_skip(): void {
 	$st = t_settings();
 	$tunnel = src(['REMOTE_ADDR' => '127.0.0.1']);

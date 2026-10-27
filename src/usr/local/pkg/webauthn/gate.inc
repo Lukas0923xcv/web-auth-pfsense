@@ -49,9 +49,6 @@ function webauthn_gate(): void {
 		webauthn_render_gate_page('deny', $settings, null, '');
 		exit;
 	}
-	if ($user !== $typed) {
-		webauthn_log(LOG_WARNING, "sign-in name '{$typed}' resolves to local account '{$user}'; its passkeys apply", $source);
-	}
 
 	if ($decision == 'revoked') {
 		webauthn_log(LOG_NOTICE, "session of user '{$user}' ended: the passkey it was verified with was removed", $source);
