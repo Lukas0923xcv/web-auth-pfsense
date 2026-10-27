@@ -647,9 +647,7 @@ function webauthn_notice(string $message, ?string $rate_key = null): void {
 function webauthn_notice_due(string $key): bool {
 	$due = webauthn_with_lock(WEBAUTHN_NOTICE_FILE, function () use ($key) {
 		$now = time();
-		$data = json_decode((string)@file_get_contents(WEBAUTHN_NOTICE_FILE), true);
-		$data = is_array($data) ? $data : [];
-		$data = array_filter($data, function ($t) use ($now) {
+		$data = array_filter(webauthn_read_json(WEBAUTHN_NOTICE_FILE) ?? [], function ($t) use ($now) {
 			return is_int($t) && $t > $now - WEBAUTHN_NOTICE_INTERVAL;
 		});
 		$k = hash('sha256', $key);
@@ -819,8 +817,7 @@ function webauthn_record_config_state(): bool {
  * state. Returns true if a difference was found.
  */
 function webauthn_check_config_state(): bool {
-	$data = json_decode((string)@file_get_contents(WEBAUTHN_STATE_FILE), true);
-	if (is_array($data) && ($data['hash'] ?? null) === webauthn_config_hash()) {
+	if ((webauthn_read_json(WEBAUTHN_STATE_FILE)['hash'] ?? null) === webauthn_config_hash()) {
 		return false;
 	}
 	/* The state could not be recorded recently (full /conf): do not parse
@@ -831,8 +828,8 @@ function webauthn_check_config_state(): bool {
 		return false;
 	}
 	$changed = webauthn_with_lock(WEBAUTHN_CONFIG_LOCK, function () use ($retry) {
-		$data = json_decode((string)@file_get_contents(WEBAUTHN_STATE_FILE), true);
-		$known = is_array($data) && isset($data['hash']);
+		$data = webauthn_read_json(WEBAUTHN_STATE_FILE);
+		$known = isset($data['hash']);
 		/* This request may simply have loaded the config before the last
 		 * save by this package: compare what is on disk now. */
 		$disk = webauthn_disk_section();
@@ -1016,12 +1013,7 @@ function webauthn_save_settings(array $new): bool {
  * means outside damage): then no passkey is accepted (fail closed).
  */
 function webauthn_revoked_ids(): ?array {
-	$raw = @file_get_contents(WEBAUTHN_REVOKED_FILE);
-	if ($raw === false) {
-		return file_exists(WEBAUTHN_REVOKED_FILE) ? null : [];
-	}
-	$data = json_decode($raw, true);
-	return is_array($data) ? $data : null;
+	return webauthn_read_json(WEBAUTHN_REVOKED_FILE);
 }
 
 function webauthn_revoke(string $id): bool {
@@ -1058,12 +1050,8 @@ function webauthn_unrevoke(string $id): bool {
  * repaired or removed.
  */
 function webauthn_read_counters(): ?array {
-	$raw = @file_get_contents(WEBAUTHN_COUNTER_FILE);
-	if ($raw === false) {
-		return file_exists(WEBAUTHN_COUNTER_FILE) ? null : [];
-	}
-	$data = json_decode($raw, true);
-	if (!is_array($data)) {
+	$data = webauthn_read_json(WEBAUTHN_COUNTER_FILE);
+	if ($data === null) {
 		static $logged = false;
 		if (!$logged) {
 			$logged = true;
@@ -1128,6 +1116,19 @@ function webauthn_with_lock(string $file, callable $fn, $fail = false) {
 		flock($lock, LOCK_UN);
 		fclose($lock);
 	}
+}
+
+/*
+ * The array stored in JSON file $file: [] if the file does not exist,
+ * null if it exists but cannot be read as one (callers fail closed).
+ */
+function webauthn_read_json(string $file): ?array {
+	$raw = @file_get_contents($file);
+	if ($raw === false) {
+		return file_exists($file) ? null : [];
+	}
+	$data = json_decode($raw, true);
+	return is_array($data) ? $data : null;
 }
 
 /*
@@ -1292,9 +1293,8 @@ function webauthn_use_challenge(string $purpose, string $username, string $clien
  * used-challenge lock held.
  */
 function webauthn_used_nonces(int $now): ?array {
-	$raw = @file_get_contents(WEBAUTHN_USED_FILE);
-	$used = ($raw === false) ? (file_exists(WEBAUTHN_USED_FILE) ? null : []) : json_decode($raw, true);
-	if (!is_array($used)) {
+	$used = webauthn_read_json(WEBAUTHN_USED_FILE);
+	if ($used === null) {
 		clearstatcache(true, WEBAUTHN_USED_FILE);
 		if ($now - (int)@filemtime(WEBAUTHN_USED_FILE) <= WEBAUTHN_CHALLENGE_TTL) {
 			return null;
